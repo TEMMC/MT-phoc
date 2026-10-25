@@ -2,7 +2,7 @@
   <schema id="sm.puri.phoc"
           path="/sm/puri/phoc/">
     <key name="auto-maximize" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Auto maximize applications</summary>
       <description>
         Whether to maximize application windows. This only affects
