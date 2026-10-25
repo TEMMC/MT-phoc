@@ -78,7 +78,18 @@ else
 endif
 wlroots_has_xwayland = wlroots.get_variable(pkgconfig: 'have_xwayland',
                                             internal: 'have_xwayland') == 'true'
-wlroots_has_android_renderer = cc.has_header('wlr/render/android.h', dependencies: wlroots)
+# Meson only accepts ExternalDependency objects in compiler dependency checks.
+# The embedded wlroots subproject exposes an internal dependency, so probe its
+# headers directly in that case and retain pkg-config dependency checks when
+# using a system wlroots installation.
+if not embed_wlroots.disabled() and wlroots_proj.found()
+  wlroots_has_android_renderer = cc.has_header(
+    'wlr/render/android.h',
+    include_directories: include_directories('subprojects/wlroots/include'),
+  )
+else
+  wlroots_has_android_renderer = cc.has_header('wlr/render/android.h', dependencies: wlroots)
+endif
 
 if get_option('xwayland').enabled() and not wlroots_has_xwayland
   error('Cannot enable Xwayland in phoc: wlroots has been built without Xwayland support')
