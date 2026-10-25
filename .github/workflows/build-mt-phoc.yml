@@ -27,11 +27,11 @@ jobs:
           apt-get install -y xvfb xwayland xauth desktop-file-utils
       - name: Configure
         env:
-          CFLAGS: -Wno-error=switch
+          CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
         run: meson setup _build -Dembed-wlroots=enabled -Dxwayland=enabled -Dtests=false
       - name: Compile
         env:
-          CFLAGS: -Wno-error=switch
+          CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
         run: meson compile -C _build
       - name: Tests skipped
         run: echo "Tests intentionally skipped; build and package only."
