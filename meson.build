@@ -91,6 +91,17 @@ else
   wlroots_has_android_renderer = cc.has_header('wlr/render/android.h', dependencies: wlroots)
 endif
 
+# This protocol is absent from wlroots 0.17; detect it for newer compatible builds.
+if not embed_wlroots.disabled() and wlroots_proj.found()
+  wlroots_has_ext_foreign_toplevel_list_v1 = cc.has_header(
+    'wlr/types/wlr_ext_foreign_toplevel_list_v1.h',
+    include_directories: include_directories('subprojects/wlroots/include'),
+  )
+else
+  wlroots_has_ext_foreign_toplevel_list_v1 = cc.has_header(
+    'wlr/types/wlr_ext_foreign_toplevel_list_v1.h', dependencies: wlroots)
+endif
+
 if get_option('xwayland').enabled() and not wlroots_has_xwayland
   error('Cannot enable Xwayland in phoc: wlroots has been built without Xwayland support')
 endif
@@ -193,6 +204,8 @@ config_h.set('PHOC_USE_DTRACE', use_dtrace,
 	     description: 'Whether tracing via dtrace/stp is enabled')
 config_h.set('PHOC_HAVE_XWAYLAND_SET_OPACITY', have_xwayland_set_opacity,
 	     description: 'Whether we have wlr_xwayland_surface.set_opacity')
+config_h.set('PHOC_HAVE_EXT_FOREIGN_TOPLEVEL_LIST_V1', wlroots_has_ext_foreign_toplevel_list_v1,
+             description: 'Whether wlroots provides ext foreign toplevel list v1')
 if wlroots_has_android_renderer
 	config_h.set('WLROOTS_HAS_ANDROID_RENDERER', wlroots_has_android_renderer,
 		     description: 'Whether wlroots has the android renderer')
