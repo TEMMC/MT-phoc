@@ -20,14 +20,11 @@ jobs:
       - name: Install build dependencies
         run: |
           apt-get update
-          apt-get install -y \
-            build-essential meson ninja-build pkg-config \
-            libglib2.0-dev libgnome-desktop-3-dev \
-            libinput-dev libudev-dev libdrm-dev libpixman-1-dev \
-            libwayland-dev wayland-protocols libxkbcommon-dev \
-            libgles2-mesa-dev libwlroots-dev libxcb1-dev \
-            libjson-glib-dev gsettings-desktop-schemas \
-            xwayland xvfb xauth desktop-file-utils
+          apt-get install -y ca-certificates git meson ninja-build pkg-config build-essential
+          printf 'Types: deb deb-src\nURIs: http://deb.debian.org/debian\nSuites: testing\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n' > /etc/apt/sources.list.d/debian.sources
+          apt-get update
+          apt-get build-dep -y phoc
+          apt-get install -y xvfb xwayland xauth desktop-file-utils
       - name: Configure
         run: meson setup _build -Dembed-wlroots=disabled -Dxwayland=enabled
       - name: Compile
