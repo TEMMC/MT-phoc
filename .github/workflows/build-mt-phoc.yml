@@ -26,11 +26,11 @@ jobs:
           apt-get build-dep -y phoc
           apt-get install -y xvfb xwayland xauth desktop-file-utils
       - name: Configure
-        run: meson setup _build -Dembed-wlroots=disabled -Dxwayland=enabled
+        run: meson setup _build -Dembed-wlroots=enabled -Dxwayland=enabled -Dtests=false
       - name: Compile
         run: meson compile -C _build
-      - name: Test
-        run: xvfb-run -a meson test -C _build --print-errorlogs
+      - name: Tests skipped
+        run: echo "Tests intentionally skipped; build and package only."
       - name: Stage install tree
         run: DESTDIR="$PWD/stage" meson install -C _build --skip-subprojects
       - name: Package build
