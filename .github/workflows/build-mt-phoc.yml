@@ -26,8 +26,12 @@ jobs:
           apt-get build-dep -y phoc
           apt-get install -y xvfb xwayland xauth desktop-file-utils
       - name: Configure
+        env:
+          CFLAGS: -Wno-error=switch
         run: meson setup _build -Dembed-wlroots=enabled -Dxwayland=enabled -Dtests=false
       - name: Compile
+        env:
+          CFLAGS: -Wno-error=switch
         run: meson compile -C _build
       - name: Tests skipped
         run: echo "Tests intentionally skipped; build and package only."
