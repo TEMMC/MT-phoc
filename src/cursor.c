@@ -1301,7 +1301,11 @@ phoc_cursor_press_button (PhocCursor              *self,
   struct wlr_surface *surface;
 
   surface = phoc_desktop_wlr_surface_at (desktop, lx, ly, &sx, &sy, &view);
-  if (state == WLR_BUTTON_PRESSED && view && phoc_seat_grab_meta_press (seat)) {
+  /* Desktop mode: a touch on the compositor-drawn title bar starts a
+   * move grab. Mouse users keep the familiar modifier-drag behavior below.
+   * This avoids stealing ordinary touches inside application surfaces. */
+  if (state == WLR_BUTTON_PRESSED && view &&
+      (phoc_seat_grab_meta_press (seat) || (is_touch && !surface && sy < 48))) {
     phoc_seat_set_focus_view (seat, view);
 
     switch (button) {
