@@ -174,7 +174,7 @@ phoc_lib = both_libraries(
   sources,
   libphoc_generated_sources,
   libphoc_generated_headers,
-  include_directories: phoc_anim_inc,
+  include_directories: [phoc_anim_inc, wlroots_protocol_inc],
   dependencies: phoc_deps,
   install: false,
 )
