@@ -170,8 +170,18 @@ phoc_input_device_constructed (GObject *object)
     priv->device_destroy.notify = handle_device_destroy;
     wl_signal_add (&priv->device->events.destroy, &priv->device_destroy);
 
-    priv->vendor = g_strdup_printf ("%.4x", priv->device->vendor);
-    priv->product = g_strdup_printf ("%.4x", priv->device->product);
+    if (wlr_input_device_is_libinput (priv->device)) {
+      struct libinput_device *libinput_device =
+        wlr_libinput_get_device_handle (priv->device);
+      priv->vendor = g_strdup_printf ("%.4x",
+                                      libinput_device_get_id_vendor (libinput_device));
+      priv->product = g_strdup_printf ("%.4x",
+                                       libinput_device_get_id_product (libinput_device));
+    } else {
+      /* Non-libinput devices don't expose USB IDs through wlroots 0.18. */
+      priv->vendor = g_strdup ("0000");
+      priv->product = g_strdup ("0000");
+    }
   }
 }
 
