@@ -619,8 +619,9 @@ phoc_desktop_constructed (GObject *object)
 
   self->export_dmabuf_manager_v1 = wlr_export_dmabuf_manager_v1_create (wl_display);
   self->server_decoration_manager = wlr_server_decoration_manager_create (wl_display);
+  /* Prefer compositor-drawn title bars for windowed desktop use. */
   wlr_server_decoration_manager_set_default_mode (self->server_decoration_manager,
-                                                  WLR_SERVER_DECORATION_MANAGER_MODE_CLIENT);
+                                                  WLR_SERVER_DECORATION_MANAGER_MODE_SERVER);
   self->primary_selection_device_manager =
     wlr_primary_selection_v1_device_manager_create (wl_display);
 
