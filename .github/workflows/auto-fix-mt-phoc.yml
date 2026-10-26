@@ -1,0 +1,269 @@
+name: MT-Phoc Auto-Fix Loop
+
+on:
+  workflow_run:
+    workflows: ["Build MT-Phoc"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch to repair and validate
+        required: true
+        default: metmc-desktop-mode
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: mt-phoc-autofix-${{ github.event.workflow_run.head_branch || inputs.ref }}
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-24.04-arm
+    container: debian:testing
+    timeout-minutes: 180
+    steps:
+      - name: Check API secret
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::error::Add OPENAI_API_KEY in Settings > Secrets and variables > Actions before running this workflow."
+            exit 1
+          fi
+
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch || inputs.ref }}
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y ca-certificates git meson ninja-build pkg-config build-essential
+          printf 'Types: deb deb-src\nURIs: http://deb.debian.org/debian\nSuites: testing\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n' > /etc/apt/sources.list.d/debian.sources
+          apt-get update
+          apt-get build-dep -y phoc
+          apt-get install -y xvfb xwayland xauth desktop-file-utils
+          useradd --create-home --shell /bin/bash codex
+          chown -R codex:codex "$GITHUB_WORKSPACE"
+
+      - name: Configure
+        id: configure
+        continue-on-error: true
+        env:
+          CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
+        run: |
+          set -o pipefail
+          meson setup _build -Dembed-wlroots=enabled -Dxwayland=enabled -Dtests=false 2>&1 | tee mt-phoc-build.log
+
+      - name: Build attempt 1
+        id: build1
+        if: steps.configure.outcome == 'success'
+        continue-on-error: true
+        env:
+          CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
+        run: |
+          set -o pipefail
+          meson compile -C _build 2>&1 | tee mt-phoc-build.log
+
+      - name: Prepare first repair prompt
+        if: steps.configure.outcome == 'failure' || steps.build1.outcome == 'failure'
+        run: |
+          {
+            echo 'Repair the MT-Phoc build failure. Read the full relevant source, Meson files, wlroots wrap and patches before editing. Diagnose the actual first root cause from mt-phoc-build.log; do not guess, suppress errors, delete features, or make unrelated refactors. Preserve the pinned wlroots version and intended Phoc features. Make the smallest correct source/build-system fix. This is repair attempt 1 of 5. Do not commit changes. The next workflow step will rerun Meson compile.'
+            echo
+            echo 'Latest build/configure log:'
+            cat mt-phoc-build.log
+          } > AUTOFIX_PROMPT.md
+
+      - name: Codex repair 1
+        if: steps.configure.outcome == 'failure' || steps.build1.outcome == 'failure'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":workspace"
+          prompt-file: AUTOFIX_PROMPT.md
+          safety-strategy: unprivileged-user
+          codex-user: codex
+
+      - name: Reconfigure after repair 1
+        id: configure2
+        if: steps.configure.outcome == 'failure' || steps.build1.outcome == 'failure'
+        continue-on-error: true
+        env:
+          CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
+        run: |
+          set -o pipefail
+          rm -rf _build
+          meson setup _build -Dembed-wlroots=enabled -Dxwayland=enabled -Dtests=false 2>&1 | tee mt-phoc-build.log
+
+      - name: Build attempt 2
+        id: build2
+        if: (steps.configure.outcome == 'failure' || steps.build1.outcome == 'failure') && steps.configure2.outcome == 'success'
+        continue-on-error: true
+        env:
+          CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
+        run: |
+          set -o pipefail
+          meson compile -C _build 2>&1 | tee mt-phoc-build.log
+
+      - name: Prepare second repair prompt
+        if: steps.build2.outcome == 'failure' || steps.configure2.outcome == 'failure'
+        run: |
+          {
+            echo 'Continue fixing MT-Phoc based on the newest failure in mt-phoc-build.log. Inspect affected code and relevant wlroots 0.18.2 APIs/files before editing. Make only a minimal root-cause fix; preserve features, do not hide compiler errors, do not commit. This is repair attempt 2 of 5.'
+            echo
+            cat mt-phoc-build.log
+          } > AUTOFIX_PROMPT.md
+
+      - name: Codex repair 2
+        if: steps.build2.outcome == 'failure' || steps.configure2.outcome == 'failure'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":workspace"
+          prompt-file: AUTOFIX_PROMPT.md
+          safety-strategy: unprivileged-user
+          codex-user: codex
+
+      - name: Reconfigure after repair 2
+        id: configure3
+        if: steps.build2.outcome == 'failure' || steps.configure2.outcome == 'failure'
+        continue-on-error: true
+        env:
+          CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
+        run: |
+          set -o pipefail
+          rm -rf _build
+          meson setup _build -Dembed-wlroots=enabled -Dxwayland=enabled -Dtests=false 2>&1 | tee mt-phoc-build.log
+
+      - name: Build attempt 3
+        id: build3
+        if: (steps.build2.outcome == 'failure' || steps.configure2.outcome == 'failure') && steps.configure3.outcome == 'success'
+        continue-on-error: true
+        env:
+          CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
+        run: |
+          set -o pipefail
+          meson compile -C _build 2>&1 | tee mt-phoc-build.log
+
+      - name: Prepare third repair prompt
+        if: steps.build3.outcome == 'failure' || steps.configure3.outcome == 'failure'
+        run: |
+          {
+            echo 'Continue from the current failure log. Read the relevant implementation, headers and build configuration first; identify the root cause and implement a minimal compatible fix. Do not suppress errors, remove features, or commit. This is repair attempt 3 of 5.'
+            echo
+            cat mt-phoc-build.log
+          } > AUTOFIX_PROMPT.md
+
+      - name: Codex repair 3
+        if: steps.build3.outcome == 'failure' || steps.configure3.outcome == 'failure'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":workspace"
+          prompt-file: AUTOFIX_PROMPT.md
+          safety-strategy: unprivileged-user
+          codex-user: codex
+
+      - name: Reconfigure after repair 3
+        id: configure4
+        if: steps.build3.outcome == 'failure' || steps.configure3.outcome == 'failure'
+        continue-on-error: true
+        env:
+          CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
+        run: |
+          set -o pipefail
+          rm -rf _build
+          meson setup _build -Dembed-wlroots=enabled -Dxwayland=enabled -Dtests=false 2>&1 | tee mt-phoc-build.log
+
+      - name: Build attempt 4
+        id: build4
+        if: (steps.build3.outcome == 'failure' || steps.configure3.outcome == 'failure') && steps.configure4.outcome == 'success'
+        continue-on-error: true
+        env:
+          CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
+        run: |
+          set -o pipefail
+          meson compile -C _build 2>&1 | tee mt-phoc-build.log
+
+      - name: Prepare fourth repair prompt
+        if: steps.build4.outcome == 'failure' || steps.configure4.outcome == 'failure'
+        run: |
+          {
+            echo 'Continue diagnosis from mt-phoc-build.log. Read the source/header/API and relevant patch files before editing. Fix the root cause minimally, preserve behavior and wlroots pin, never mask errors. Do not commit. This is repair attempt 4 of 5.'
+            echo
+            cat mt-phoc-build.log
+          } > AUTOFIX_PROMPT.md
+
+      - name: Codex repair 4
+        if: steps.build4.outcome == 'failure' || steps.configure4.outcome == 'failure'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":workspace"
+          prompt-file: AUTOFIX_PROMPT.md
+          safety-strategy: unprivileged-user
+          codex-user: codex
+
+      - name: Reconfigure after repair 4
+        id: configure5
+        if: steps.build4.outcome == 'failure' || steps.configure4.outcome == 'failure'
+        continue-on-error: true
+        env:
+          CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
+        run: |
+          set -o pipefail
+          rm -rf _build
+          meson setup _build -Dembed-wlroots=enabled -Dxwayland=enabled -Dtests=false 2>&1 | tee mt-phoc-build.log
+
+      - name: Build attempt 5
+        id: build5
+        if: (steps.build4.outcome == 'failure' || steps.configure4.outcome == 'failure') && steps.configure5.outcome == 'success'
+        continue-on-error: true
+        env:
+          CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
+        run: |
+          set -o pipefail
+          meson compile -C _build 2>&1 | tee mt-phoc-build.log
+
+      - name: Preserve logs and remove workflow-only files
+        if: always()
+        run: |
+          if [ -f mt-phoc-build.log ]; then cp mt-phoc-build.log "${RUNNER_TEMP}/mt-phoc-build.log"; fi
+          rm -f mt-phoc-build.log AUTOFIX_PROMPT.md
+
+      - name: Open pull request with verified fix
+        if: steps.build1.outcome == 'success' || steps.build2.outcome == 'success' || steps.build3.outcome == 'success' || steps.build4.outcome == 'success' || steps.build5.outcome == 'success'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "fix(mt-phoc): repair failing build"
+          branch: codex/mt-phoc-autofix
+          base: ${{ github.event.workflow_run.head_branch || inputs.ref }}
+          title: "Auto-fix MT-Phoc build failure"
+          body: |
+            Automated Codex repair loop for MT-Phoc.
+
+            The changes were made in response to the Meson build log and the build completed successfully on the workflow runner. Please review the diff before merging.
+          delete-branch: false
+
+      - name: Fail if all repair attempts failed
+        if: steps.build1.outcome != 'success' && steps.build2.outcome != 'success' && steps.build3.outcome != 'success' && steps.build4.outcome != 'success' && steps.build5.outcome != 'success'
+        run: |
+          echo "::error::MT-Phoc still does not compile after five repair attempts. Review mt-phoc-build.log and the Codex output before another run."
+          exit 1
+
+      - name: Upload final build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mt-phoc-autofix-build-log
+          path: ${{ runner.temp }}/mt-phoc-build.log
+          if-no-files-found: warn
