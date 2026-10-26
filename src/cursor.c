@@ -1301,28 +1301,33 @@ phoc_cursor_press_button (PhocCursor              *self,
   struct wlr_surface *surface;
 
   surface = phoc_desktop_wlr_surface_at (desktop, lx, ly, &sx, &sy, &view);
-  /* Desktop mode: a touch on the compositor-drawn title bar starts a
-   * move grab. Mouse users keep the familiar modifier-drag behavior below.
-   * This avoids stealing ordinary touches inside application surfaces. */
+  /* Desktop mode: touches on compositor-drawn decorations manage windows.
+   * Keep client-area touches untouched, and preserve modifier-drag for mice. */
   if (state == WLR_BUTTON_PRESSED && view &&
-      (phoc_seat_grab_meta_press (seat) || (is_touch && !surface && sy < 48))) {
+      (phoc_seat_grab_meta_press (seat) ||
+       (is_touch && !surface &&
+        (sy < 48 || sx < 24 || sx > view->box.width - 24 ||
+         sy > view->box.height - 24)))) {
     phoc_seat_set_focus_view (seat, view);
 
     switch (button) {
     case BTN_LEFT:
-      if (is_touch && !surface &&
-          (sx < 24 || sx > view->box.width - 24 || sy > view->box.height - 24)) {
+      if (is_touch && !surface) {
         uint32_t edges = 0;
 
         if (sx < 24)
           edges |= WLR_EDGE_LEFT;
         else if (sx > view->box.width - 24)
           edges |= WLR_EDGE_RIGHT;
-        if (sy > view->box.height - 24)
+        if (sy < 12)
+          edges |= WLR_EDGE_TOP;
+        else if (sy > view->box.height - 24)
           edges |= WLR_EDGE_BOTTOM;
-        if (edges == 0)
-          edges = WLR_EDGE_BOTTOM;
-        phoc_seat_begin_resize (seat, view, edges);
+
+        if (edges)
+          phoc_seat_begin_resize (seat, view, edges);
+        else
+          phoc_seat_begin_move (seat, view);
       } else {
         phoc_seat_begin_move (seat, view);
       }
