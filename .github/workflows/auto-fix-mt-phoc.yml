@@ -1,6 +1,9 @@
 name: MT-Phoc Auto-Fix Loop
 
 on:
+  push:
+    branches: [group/next/phosh-0.47]
+    paths: [.github/workflows/auto-fix-mt-phoc.yml]
   workflow_run:
     workflows: ["Build MT-Phoc"]
     types: [completed]
@@ -16,12 +19,12 @@ permissions:
   contents: write
 
 concurrency:
-  group: mt-phoc-autofix-${{ github.event.workflow_run.head_branch || inputs.ref }}
+  group: mt-phoc-autofix-${{ github.event.workflow_run.head_branch || inputs.ref || 'metmc-desktop-mode' }}
   cancel-in-progress: false
 
 jobs:
   repair:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-24.04-arm
     container: debian:testing
     timeout-minutes: 180
