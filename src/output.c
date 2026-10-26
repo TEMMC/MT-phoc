@@ -10,6 +10,7 @@
 #include <wlr/backend/drm.h>
 #include <wlr/config.h>
 #include <wlr/render/swapchain.h>
+#include <wlr/render/pass.h>
 #ifdef WLROOTS_HAS_ANDROID_RENDERER
 #include <wlr/render/android.h>
 #endif
@@ -632,7 +633,7 @@ phoc_output_draw (PhocOutput *self)
     buffer_age = wlr_renderer_get_buffer_age (wlr_output->renderer, buffer);
 #endif
 
-  render_pass = wlr_renderer_begin_buffer_pass_for_output (wlr_output->renderer, buffer, NULL, (void*)wlr_output);
+  render_pass = wlr_renderer_begin_buffer_pass (wlr_output->renderer, buffer, NULL);
   if (!render_pass) {
     wlr_buffer_unlock (buffer);
     goto out;
