@@ -27,9 +27,15 @@ handle_xwayland_ready (struct wl_listener *listener,
   PhocDesktop *desktop = wl_container_of (listener, desktop, xwayland_ready);
   xcb_connection_t *xcb_conn = xcb_connect (NULL, NULL);
 
+  if (xcb_conn == NULL) {
+    g_warning ("XCB connect failed: no connection object");
+    return;
+  }
+
   int err = xcb_connection_has_error (xcb_conn);
   if (err) {
     g_warning ("XCB connect failed: %d", err);
+    xcb_disconnect (xcb_conn);
     return;
   }
 
