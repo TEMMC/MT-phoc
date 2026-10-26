@@ -41,7 +41,7 @@ jobs:
       - name: Checkout target branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_branch || inputs.ref }}
+          ref: ${{ github.event.workflow_run.head_branch || inputs.ref || 'metmc-desktop-mode' }}
           fetch-depth: 0
 
       - name: Install build dependencies
@@ -259,7 +259,7 @@ jobs:
       - name: Push verified repair so normal CI can validate it
         if: steps.build1.outcome == 'success' || steps.build2.outcome == 'success' || steps.build3.outcome == 'success' || steps.build4.outcome == 'success' || steps.build5.outcome == 'success'
         env:
-          TARGET_REF: ${{ github.event.workflow_run.head_branch || inputs.ref }}
+          TARGET_REF: ${{ github.event.workflow_run.head_branch || inputs.ref || 'metmc-desktop-mode' }}
         run: |
           git add -A -- . ':!_build' ':!stage' ':!mt-phoc-build.log' ':!AUTOFIX_PROMPT.md' ':!MT-phoc-linux-install.tar.gz'
           if git diff --cached --quiet; then
