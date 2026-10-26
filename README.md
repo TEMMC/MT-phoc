@@ -80,6 +80,24 @@ directory.
 Outputs are configured via `phoc.ini` config file - see [`src/phoc.ini.example`][3]
 for more information.
 
+## METMC desktop mode
+
+For a desktop-like session with overlapping windows, turn off automatic maximization. Phoc then allows Wayland applications to request and use their normal window sizes, subject to each application and shell. The compositor already handles interactive move/resize through its normal Wayland seat bindings; shell-side taskbar and workspace controls must use the corresponding Wayland protocols and are not provided by this setting alone.
+
+The default for this fork is `auto-maximize=false` so supported applications are not forced to fill the phone display. To restore phone-style behavior, run:
+
+```sh
+./helpers/auto-maximize on
+```
+
+To enable desktop-style windows again:
+
+```sh
+./helpers/auto-maximize off
+```
+
+This change does not replace wlroots, the output backend, or the display pipeline. It changes only Phoc's default window policy. Verify touch-driven move/resize and memory/performance on the target device before treating it as production-ready.
+
 ## Debugging
 
 phoc uses glib so the `G_MESSAGES_DEBUG` environment variable can be

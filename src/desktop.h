@@ -10,7 +10,6 @@
 #include <time.h>
 #include <wayland-server-core.h>
 #include <wlr/config.h>
-#include <wlr/types/wlr_ext_foreign_toplevel_list_v1.h>
 #include <wlr/types/wlr_foreign_toplevel_management_v1.h>
 #include <wlr/types/wlr_gamma_control_v1.h>
 #include <wlr/types/wlr_input_method_v2.h>
@@ -47,7 +46,9 @@ struct _PhocDesktop {
   struct wl_list outputs; // PhocOutput::link
 
   struct wlr_export_dmabuf_manager_v1 *export_dmabuf_manager_v1;
+#ifdef PHOC_HAVE_EXT_FOREIGN_TOPLEVEL_LIST_V1
   struct wlr_ext_foreign_toplevel_list_v1 *ext_foreign_toplevel_list_v1;
+#endif
   struct wlr_foreign_toplevel_manager_v1 *foreign_toplevel_manager_v1;
   struct wlr_gamma_control_manager_v1 *gamma_control_manager_v1;
   struct wlr_idle *idle;
