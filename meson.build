@@ -57,6 +57,10 @@ gmobile_dep    = dependency('gmobile',
     'tests=false',
   ])
 embed_wlroots = get_option('embed-wlroots')
+# wlroots generates tablet-v2-protocol.h in its build-tree protocol directory.
+# Phoc includes wlr_tablet_v2.h directly, so expose that generated header when
+# wlroots is built as an embedded subproject.
+wlroots_protocol_inc = []
 
 if not embed_wlroots.disabled()
   # Try first to find wlroots as a subproject, then as a system dependency
@@ -72,6 +76,7 @@ if not embed_wlroots.disabled()
 endif
 
 if not embed_wlroots.disabled() and wlroots_proj.found()
+  wlroots_protocol_inc = include_directories('subprojects/wlroots/protocol')
   wlroots = wlroots_proj.get_variable('wlroots')
 else
   wlroots = dependency('wlroots', version: ['>= 0.18.0', '< 0.19.0'])
