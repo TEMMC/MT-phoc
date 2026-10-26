@@ -116,8 +116,11 @@ phoc_xdg_toplevel_decoration_set_mode (PhocXdgToplevelDecoration *decoration)
     return;
 
   mode = decoration->wlr_decoration->requested_mode;
+  /* Desktop mode needs a visible title bar for touch-friendly window
+   * movement and server-side controls. Respect explicit client requests,
+   * but use server-side decorations when the client leaves the mode unset. */
   if (mode == WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_NONE)
-    mode = WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE;
+    mode = WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE;
 
   wlr_xdg_toplevel_decoration_v1_set_mode (decoration->wlr_decoration, mode);
 }
