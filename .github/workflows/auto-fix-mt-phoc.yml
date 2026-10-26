@@ -14,7 +14,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 concurrency:
   group: mt-phoc-autofix-${{ github.event.workflow_run.head_branch || inputs.ref }}
@@ -71,6 +70,9 @@ jobs:
         run: |
           set -o pipefail
           meson compile -C _build 2>&1 | tee mt-phoc-build.log
+          rm -rf stage MT-phoc-linux-install.tar.gz
+          DESTDIR="$PWD/stage" meson install -C _build --skip-subprojects
+          tar -czf MT-phoc-linux-install.tar.gz -C stage .
 
       - name: Prepare first repair prompt
         if: steps.configure.outcome == 'failure' || steps.build1.outcome == 'failure'
@@ -112,6 +114,9 @@ jobs:
         run: |
           set -o pipefail
           meson compile -C _build 2>&1 | tee mt-phoc-build.log
+          rm -rf stage MT-phoc-linux-install.tar.gz
+          DESTDIR="$PWD/stage" meson install -C _build --skip-subprojects
+          tar -czf MT-phoc-linux-install.tar.gz -C stage .
 
       - name: Prepare second repair prompt
         if: steps.build2.outcome == 'failure' || steps.configure2.outcome == 'failure'
@@ -152,6 +157,9 @@ jobs:
         run: |
           set -o pipefail
           meson compile -C _build 2>&1 | tee mt-phoc-build.log
+          rm -rf stage MT-phoc-linux-install.tar.gz
+          DESTDIR="$PWD/stage" meson install -C _build --skip-subprojects
+          tar -czf MT-phoc-linux-install.tar.gz -C stage .
 
       - name: Prepare third repair prompt
         if: steps.build3.outcome == 'failure' || steps.configure3.outcome == 'failure'
@@ -192,6 +200,9 @@ jobs:
         run: |
           set -o pipefail
           meson compile -C _build 2>&1 | tee mt-phoc-build.log
+          rm -rf stage MT-phoc-linux-install.tar.gz
+          DESTDIR="$PWD/stage" meson install -C _build --skip-subprojects
+          tar -czf MT-phoc-linux-install.tar.gz -C stage .
 
       - name: Prepare fourth repair prompt
         if: steps.build4.outcome == 'failure' || steps.configure4.outcome == 'failure'
@@ -232,6 +243,9 @@ jobs:
         run: |
           set -o pipefail
           meson compile -C _build 2>&1 | tee mt-phoc-build.log
+          rm -rf stage MT-phoc-linux-install.tar.gz
+          DESTDIR="$PWD/stage" meson install -C _build --skip-subprojects
+          tar -czf MT-phoc-linux-install.tar.gz -C stage .
 
       - name: Preserve logs and remove workflow-only files
         if: always()
@@ -239,20 +253,20 @@ jobs:
           if [ -f mt-phoc-build.log ]; then cp mt-phoc-build.log "${RUNNER_TEMP}/mt-phoc-build.log"; fi
           rm -f mt-phoc-build.log AUTOFIX_PROMPT.md
 
-      - name: Open pull request with verified fix
+      - name: Push verified repair so normal CI can validate it
         if: steps.build1.outcome == 'success' || steps.build2.outcome == 'success' || steps.build3.outcome == 'success' || steps.build4.outcome == 'success' || steps.build5.outcome == 'success'
-        uses: peter-evans/create-pull-request@v7
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "fix(mt-phoc): repair failing build"
-          branch: codex/mt-phoc-autofix
-          base: ${{ github.event.workflow_run.head_branch || inputs.ref }}
-          title: "Auto-fix MT-Phoc build failure"
-          body: |
-            Automated Codex repair loop for MT-Phoc.
-
-            The changes were made in response to the Meson build log and the build completed successfully on the workflow runner. Please review the diff before merging.
-          delete-branch: false
+        env:
+          TARGET_REF: ${{ github.event.workflow_run.head_branch || inputs.ref }}
+        run: |
+          git add -A -- . ':!_build' ':!stage' ':!mt-phoc-build.log' ':!AUTOFIX_PROMPT.md' ':!MT-phoc-linux-install.tar.gz'
+          if git diff --cached --quiet; then
+            echo "::error::Build passed locally but the repair agent produced no tracked source changes; refusing to push."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(mt-phoc): auto-repair build failure"
+          git push origin "HEAD:$TARGET_REF"
 
       - name: Fail if all repair attempts failed
         if: steps.build1.outcome != 'success' && steps.build2.outcome != 'success' && steps.build3.outcome != 'success' && steps.build4.outcome != 'success' && steps.build5.outcome != 'success'
