@@ -1310,7 +1310,22 @@ phoc_cursor_press_button (PhocCursor              *self,
 
     switch (button) {
     case BTN_LEFT:
-      phoc_seat_begin_move (seat, view);
+      if (is_touch && !surface &&
+          (sx < 24 || sx > view->box.width - 24 || sy > view->box.height - 24)) {
+        uint32_t edges = 0;
+
+        if (sx < 24)
+          edges |= WLR_EDGE_LEFT;
+        else if (sx > view->box.width - 24)
+          edges |= WLR_EDGE_RIGHT;
+        if (sy > view->box.height - 24)
+          edges |= WLR_EDGE_BOTTOM;
+        if (edges == 0)
+          edges = WLR_EDGE_BOTTOM;
+        phoc_seat_begin_resize (seat, view, edges);
+      } else {
+        phoc_seat_begin_move (seat, view);
+      }
       break;
     case BTN_RIGHT: {
       uint32_t edges = 0;
