@@ -2,11 +2,12 @@
   <schema id="sm.puri.phoc"
           path="/sm/puri/phoc/">
     <key name="auto-maximize" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Auto maximize applications</summary>
       <description>
-        Whether to maximize application windows. This only affects
-        Wayland applications and only their main window.
+        Whether to maximize application windows automatically. Disable this for
+        desktop mode with overlapping, independently movable windows. This only
+        affects Wayland applications and only their main window.
       </description>
     </key>
     <key name="scale-to-fit" type="b">
