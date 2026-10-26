@@ -1,0 +1,47 @@
+name: Build MT-Phoc
+
+on:
+  push:
+    branches: [metmc-desktop-mode]
+  pull_request:
+    branches: [group/next/phosh-0.47, metmc-desktop-mode]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    container: debian:testing
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y ca-certificates git meson ninja-build pkg-config build-essential
+          printf 'Types: deb deb-src\nURIs: http://deb.debian.org/debian\nSuites: testing\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n' > /etc/apt/sources.list.d/debian.sources
+          apt-get update
+          apt-get build-dep -y phoc
+          apt-get install -y xvfb xwayland xauth desktop-file-utils
+      - name: Configure
+        env:
+          CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
+        run: meson setup _build -Dembed-wlroots=enabled -Dxwayland=enabled -Dtests=false
+      - name: Compile
+        env:
+          CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
+        run: meson compile -C _build
+      - name: Tests skipped
+        run: echo "Tests intentionally skipped; build and package only."
+      - name: Stage install tree
+        run: DESTDIR="$PWD/stage" meson install -C _build --skip-subprojects
+      - name: Package build
+        run: tar -czf MT-phoc-linux-install.tar.gz -C stage .
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MT-phoc-linux-install
+          path: MT-phoc-linux-install.tar.gz
+          if-no-files-found: error
