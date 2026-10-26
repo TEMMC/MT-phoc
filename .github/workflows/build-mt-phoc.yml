@@ -1,10 +1,10 @@
-name: Build MT-Phoc
+name: Build MT-Phoc (Fedora-tested upstream baseline)
 
 on:
   push:
-    branches: [metmc-desktop-mode]
+    branches: [fedora-phoc-0.47.0]
   pull_request:
-    branches: [group/next/phosh-0.47, metmc-desktop-mode]
+    branches: [fedora-phoc-0.47.0]
   workflow_dispatch:
 
 permissions:
@@ -15,8 +15,6 @@ jobs:
     runs-on: ubuntu-24.04-arm
     container: debian:testing
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
       - name: Install build dependencies
         run: |
           apt-get update
@@ -25,23 +23,31 @@ jobs:
           apt-get update
           apt-get build-dep -y phoc
           apt-get install -y xvfb xwayland xauth desktop-file-utils
+      - name: Fetch Fedora-packaged upstream release
+        run: |
+          git clone --depth 1 --branch v0.47.0 https://github.com/PhoshMobi/phoc.git phoc-src
+          cd phoc-src
+          git log -1 --format='Source commit: %H%nRelease: %s'
       - name: Configure
+        working-directory: phoc-src
         env:
           CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
         run: meson setup _build -Dembed-wlroots=enabled -Dxwayland=enabled -Dtests=false
       - name: Compile
+        working-directory: phoc-src
         env:
           CFLAGS: -Wno-error=switch -Wno-error=discarded-qualifiers
         run: meson compile -C _build
       - name: Tests skipped
         run: echo "Tests intentionally skipped; build and package only."
       - name: Stage install tree
-        run: DESTDIR="$PWD/stage" meson install -C _build --skip-subprojects
+        working-directory: phoc-src
+        run: DESTDIR="$GITHUB_WORKSPACE/stage" meson install -C _build --skip-subprojects
       - name: Package build
         run: tar -czf MT-phoc-linux-install.tar.gz -C stage .
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MT-phoc-linux-install
+          name: MT-phoc-0.47.0-arm64
           path: MT-phoc-linux-install.tar.gz
           if-no-files-found: error
