@@ -80,6 +80,29 @@ directory.
 Outputs are configured via `phoc.ini` config file - see [`src/phoc.ini.example`][3]
 for more information.
 
+## MT desktop-mode notes
+
+This baseline keeps Phoc's existing floating-window management instead of forcing
+every Wayland window to maximize. The `sm.puri.phoc` schema defaults
+`auto-maximize` to `false`, which is required for overlapping windows.
+
+- **Move a window with a mouse:** hold the compositor modifier (normally Alt)
+  and drag with the left mouse button.
+- **Resize a window with a mouse:** hold the compositor modifier (normally Alt)
+  and drag with the right mouse button; the pointer position selects the resize
+  edges.
+- **Maximize / restore / tile / focus cycling:** use the desktop environment's
+  configured `org.gnome.desktop.wm.keybindings` bindings.
+- **X11 apps:** the example `phoc.ini` now uses `xwayland=immediate`, so
+  XWayland starts with Phoc rather than waiting for the first X11 client.
+
+These are compositor-side capabilities, not a replacement for the Phosh shell.
+A persistent taskbar, touch-sized titlebar buttons, touchscreen drag/resize
+gestures, and a workspace switcher need coordinated shell UI and compositor
+support; they are not claimed as complete by this baseline commit. Android apps
+also remain Android apps and require a separate bridge to present them in the
+Linux shell.
+
 ## Debugging
 
 phoc uses glib so the `G_MESSAGES_DEBUG` environment variable can be
