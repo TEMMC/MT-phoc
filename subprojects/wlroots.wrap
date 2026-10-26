@@ -1,5 +1,5 @@
 [wrap-git]
 directory=wlroots
 url=https://gitlab.gnome.org/Infrastructure/Mirrors/lorry-mirrors/gitlab_freedesktop_org/wlroots/wlroots.git
-revision=0.17.4
+revision=0.18.2
 depth=1
